@@ -401,7 +401,7 @@
     }
 
     let replyBuffer = "";
-    let contentBuffer = getCanvasContent(mode);
+    let contentBuffer = "";
     refineAbortController = new AbortController();
 
     try {
