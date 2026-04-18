@@ -13,10 +13,15 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from .config import get_settings
-from .llm import stream_chat
+from .llm import stream_chat, stream_chat_messages
 from .parsers import extract_text
-from .prompts import ANALYZE_SYSTEM_PROMPT, OPTIMIZE_SYSTEM_PROMPT
-from .schemas import AnalyzeRequest, OptimizeRequest, ParseResponse
+from .prompts import (
+    ANALYZE_SYSTEM_PROMPT,
+    OPTIMIZE_SYSTEM_PROMPT,
+    REFINE_ANALYSIS_SYSTEM_PROMPT,
+    REFINE_RESUME_SYSTEM_PROMPT,
+)
+from .schemas import AnalyzeRequest, OptimizeRequest, ParseResponse, RefineRequest
 
 logging.basicConfig(
     level=logging.INFO,
@@ -116,6 +121,126 @@ async def optimize(req: OptimizeRequest) -> StreamingResponse:
     )
     return StreamingResponse(
         _sse_stream(OPTIMIZE_SYSTEM_PROMPT, user_prompt),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+def _sse_typed_event(event_type: str, token: str) -> str:
+    """Format a typed SSE event as JSON with type and token fields."""
+    payload = {"type": event_type, "token": token}
+    return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
+
+def _sse_typed_done() -> str:
+    return "data: [DONE]\n\n"
+
+
+async def _refine_sse_stream(req: RefineRequest) -> AsyncIterator[str]:
+    """SSE stream that splits LLM output into typed reply/content events."""
+    system_prompt = (
+        REFINE_ANALYSIS_SYSTEM_PROMPT
+        if req.mode == "analysis"
+        else REFINE_RESUME_SYSTEM_PROMPT
+    )
+
+    context_parts = [
+        f"[RESUME]\n{req.resume.strip()}",
+        f"[JD]\n{req.jd.strip()}",
+        f"[CURRENT]\n{req.current_content.strip()}",
+    ]
+    if req.mode == "resume" and req.analysis:
+        context_parts.append(f"[ANALYSIS]\n{req.analysis.strip()}")
+    context_block = "\n\n".join(context_parts)
+
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": context_block},
+        {"role": "assistant", "content": "已理解简历与 JD，请告诉我想怎么调整。"},
+        *[{"role": m.role, "content": m.content} for m in req.history],
+        {"role": "user", "content": req.instruction},
+    ]
+
+    yield ": ping\n\n"
+
+    MARKER_REPLY = "<<<REPLY>>>"
+    MARKER_CONTENT = "<<<CONTENT>>>"
+    MARKER_LEN = max(len(MARKER_REPLY), len(MARKER_CONTENT))
+
+    state = "buffering"
+    tail = ""
+    has_emitted_reply = False
+    content_fallback = ""
+
+    async for token in stream_chat_messages(messages):
+        if not token:
+            continue
+
+        if token.startswith("\n\n[ERROR]"):
+            error_msg = token.replace("\n\n[ERROR] ", "").strip()
+            yield _sse_typed_event("error", error_msg)
+            continue
+
+        content_fallback += token
+        combined = tail + token
+
+        while True:
+            if state == "buffering":
+                reply_idx = combined.find(MARKER_REPLY)
+                if reply_idx != -1:
+                    state = "emit_reply"
+                    combined = combined[reply_idx + len(MARKER_REPLY):]
+                    has_emitted_reply = True
+                    continue
+                else:
+                    tail = combined[-MARKER_LEN:] if len(combined) >= MARKER_LEN else combined
+                    break
+
+            elif state == "emit_reply":
+                content_idx = combined.find(MARKER_CONTENT)
+                if content_idx != -1:
+                    reply_text = combined[:content_idx].strip()
+                    if reply_text:
+                        yield _sse_typed_event("reply", reply_text)
+                    state = "emit_content"
+                    combined = combined[content_idx + len(MARKER_CONTENT):]
+                    continue
+                else:
+                    safe_end = max(0, len(combined) - MARKER_LEN)
+                    if safe_end > 0:
+                        yield _sse_typed_event("reply", combined[:safe_end])
+                        combined = combined[safe_end:]
+                    tail = combined
+                    break
+
+            elif state == "emit_content":
+                yield _sse_typed_event("content", combined)
+                tail = ""
+                break
+
+        if state == "emit_content":
+            tail = ""
+            combined = ""
+
+    if state == "emit_reply" and tail.strip():
+        yield _sse_typed_event("reply", tail.strip())
+    elif state == "emit_content" and tail:
+        yield _sse_typed_event("content", tail)
+
+    if not has_emitted_reply and content_fallback.strip():
+        yield _sse_typed_event("reply", "已更新内容。")
+        yield _sse_typed_event("content", content_fallback)
+
+    yield _sse_typed_done()
+
+
+@app.post("/api/refine")
+async def refine(req: RefineRequest) -> StreamingResponse:
+    return StreamingResponse(
+        _refine_sse_stream(req),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
