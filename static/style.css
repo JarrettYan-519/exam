@@ -661,3 +661,212 @@ footer p {
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
+/* ================================================================
+ * Refine drawer
+ * ================================================================ */
+
+.refine-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 400px;
+  height: 100vh;
+  background: var(--surface);
+  border-left: 1px solid var(--border-soft);
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.06);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  transform: translateX(100%);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.refine-drawer.open {
+  transform: translateX(0);
+}
+
+.refine-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.refine-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.refine-close-btn {
+  background: none;
+  border: none;
+  font-size: 18px;
+  color: var(--text-subtle);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.refine-close-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--text);
+}
+
+.refine-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 18px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.refine-footer {
+  padding: 14px 22px 18px;
+  border-top: 1px solid var(--border-soft);
+}
+
+.refine-clear-btn {
+  background: none;
+  border: none;
+  color: var(--text-subtle);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0 0 10px;
+  font-family: inherit;
+  transition: color 0.15s ease;
+}
+
+.refine-clear-btn:hover {
+  color: var(--accent);
+}
+
+.refine-input-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  background: var(--bg);
+  border-radius: 22px;
+  padding: 6px 6px 6px 16px;
+  border: 1px solid var(--border-soft);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.refine-input-row:focus-within {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-focus);
+}
+
+.refine-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  resize: none;
+  min-height: 24px;
+  max-height: 120px;
+  padding: 4px 0;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text);
+  outline: none;
+}
+
+.refine-send-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background-color 0.15s ease, transform 0.12s ease;
+}
+
+.refine-send-btn:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.refine-send-btn:active:not(:disabled) {
+  transform: scale(0.92);
+  background: var(--accent-press);
+}
+
+.refine-send-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Chat bubbles */
+
+.bubble {
+  max-width: 88%;
+  padding: 10px 14px;
+  border-radius: 16px;
+  font-size: 14px;
+  line-height: 1.6;
+  word-break: break-word;
+}
+
+.bubble-user {
+  background: var(--accent);
+  color: #fff;
+  align-self: flex-end;
+  border-bottom-right-radius: 4px;
+}
+
+.bubble-assistant {
+  background: var(--bg);
+  color: var(--text);
+  align-self: flex-start;
+  border-bottom-left-radius: 4px;
+}
+
+.bubble-error {
+  background: #fef2f0;
+  color: var(--danger);
+  align-self: flex-start;
+  border-bottom-left-radius: 4px;
+  border: 1px solid rgba(191, 72, 0, 0.15);
+}
+
+.bubble-cursor::after {
+  content: "▎";
+  animation: blink 0.8s step-end infinite;
+  color: var(--text-subtle);
+}
+
+@keyframes blink {
+  50% { opacity: 0; }
+}
+
+/* Mobile: bottom sheet */
+
+@media (max-width: 768px) {
+  .refine-drawer {
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    height: 80vh;
+    border-left: none;
+    border-top: 1px solid var(--border-soft);
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.08);
+    transform: translateY(100%);
+  }
+
+  .refine-drawer.open {
+    transform: translateY(0);
+  }
+}
