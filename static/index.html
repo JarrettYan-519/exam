@@ -71,6 +71,7 @@
       <div id="analysis-output" class="markdown-body"></div>
       <div class="actions">
         <button id="btn-optimize" class="btn primary" disabled>✅ 确认并生成优化后的简历</button>
+        <button id="btn-refine-analysis" class="btn ghost" type="button">💬 继续追问</button>
         <button id="btn-reanalyze" class="btn ghost" type="button">重新分析</button>
         <span id="optimize-status" class="status-inline"></span>
       </div>
@@ -93,6 +94,7 @@
       <div class="actions">
         <button id="btn-copy" class="btn primary">📋 复制 Markdown</button>
         <button id="btn-download" class="btn">⬇️ 下载 .md</button>
+        <button id="btn-refine-resume" class="btn ghost" type="button">💬 继续追问</button>
         <button id="btn-restart" class="btn ghost" type="button">重新开始</button>
         <span id="copy-status" class="status-inline"></span>
       </div>
@@ -102,6 +104,22 @@
   <footer>
     <p>© Resume Optimization Agent · 本应用不会存储你的简历，所有数据仅在当前浏览器会话内保留</p>
   </footer>
+
+  <!-- Refine drawer -->
+  <aside id="refine-drawer" class="refine-drawer">
+    <div class="refine-header">
+      <span class="refine-title">💬 迭代优化</span>
+      <button id="refine-close" class="refine-close-btn">✕</button>
+    </div>
+    <div id="refine-body" class="refine-body"></div>
+    <div class="refine-footer">
+      <button id="refine-clear" class="refine-clear-btn">清空本轮对话</button>
+      <div class="refine-input-row">
+        <textarea id="refine-input" class="refine-input" placeholder="说说你想怎么改……" rows="1"></textarea>
+        <button id="refine-send" class="refine-send-btn">↑</button>
+      </div>
+    </div>
+  </aside>
 
   <script src="/static/app.js"></script>
 </body>
