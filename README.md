@@ -198,6 +198,46 @@ curl -N -X POST http://localhost:8000/api/analyze \
 
 响应格式同 `/api/analyze`。
 
+### `POST /api/refine`  *(SSE)*
+在用户追问时调用，流式输出类型化事件（reply + content）。
+
+请求体：
+```json
+{
+  "mode": "analysis | resume",
+  "resume": "...",
+  "jd": "...",
+  "analysis": "...(mode=resume 时必填)...",
+  "current_content": "...(当前 Canvas 中的完整内容)...",
+  "history": [
+    {"role": "user", "content": "..."},
+    {"role": "assistant", "content": "..."}
+  ],
+  "instruction": "本轮用户的追问指令"
+}
+```
+
+响应格式（`text/event-stream`）：
+```
+: ping
+
+data: {"type":"reply","token":"好的，我强化了..."}
+data: {"type":"content","token":"## 项目经历\n\n- ..."}
+...
+data: [DONE]
+```
+
+- `type: "reply"` — Agent 的简短中文回复，显示在聊天气泡
+- `type: "content"` — 完整新版 Markdown 片段，替换 Canvas 内容
+- `type: "error"` — 错误信息
+
+示例 `curl`：
+```bash
+curl -N -X POST http://localhost:8000/api/refine \
+  -H "Content-Type: application/json" \
+  -d '{"mode":"resume","resume":"...","jd":"...","analysis":"...","current_content":"...","history":[],"instruction":"项目经验再突出一下"}'
+```
+
 ---
 
 ## 🧠 LLM 交互设计说明
@@ -218,6 +258,9 @@ DeepSeek 的 `chat.completions` 原生支持 `stream=True`，SSE 刚好是"单�
 **错误处理**
 `app/llm.py` 在遇到鉴权失败 / 限流 / 网络中断时，会**向流中下发一个 `[ERROR] ...` token 再正常结束**，前端会原样渲染出来。这样可以避免"转圈圈卡死"的糟糕体验。
 
+**多轮迭代设计**（见 `/api/refine`）
+用户在看到分析结果或优化简历后，可以打开右侧抽屉追问。每次追问把完整对话历史 + 原始简历/JD + 当前 Canvas 内容一起发给 DeepSeek，保证模型理解上下文中的指代关系。模型输出通过 `<<<REPLY>>>` / `<<<CONTENT>>>` 标记分成两段：简短中文回复（聊天气泡）和完整新版 Markdown（Canvas 替换）。后端用一个状态机实时扫描 token 流，将标记前后的内容分别包装成 `reply` / `content` 类型的 SSE 事件下发前端。
+
 ---
 
 ## 🧪 验收自查清单
@@ -231,6 +274,11 @@ DeepSeek 的 `chat.completions` 原生支持 `stream=True`，SSE 刚好是"单�
 - [ ] 点「下载 .md」→ 得到本地文件且内容一致
 - [ ] 上传一份 `.pdf` / `.docx` / `.md` → 文本被正确抽取回填
 - [ ] `curl http://localhost:8000/healthz` 返回 `{"status":"ok"}`
+- [ ] Step 2 分析完成后点「💬 继续追问」→ 右侧抽屉打开 → 发送「重点强化技术栈部分」→ 看到聊天气泡回复 + Canvas 分析内容被流式更新
+- [ ] 连续追问第二轮（含指代，如「刚才那个再加强一点」）→ 两轮对话都在气泡中保留、Canvas 再次更新
+- [ ] 关闭抽屉再打开 → 历史对话仍在；点「清空本轮对话」→ 历史清空、Canvas 内容不变
+- [ ] Step 3 简历完成后同样可以追问，抽屉和更新流程一致
+- [ ] `curl -N -X POST http://localhost:8000/api/refine ...` 返回类型化 SSE 事件并以 `[DONE]` 结束
 - [ ] 故意不设 `DEEPSEEK_API_KEY` 启动，容器立即以清晰错误退出
 
 ---
