@@ -1,0 +1,10 @@
+{"type":"server-started","port":62615,"host":"127.0.0.1","url_host":"localhost","url":"http://localhost:62615","screen_dir":"/Users/jarrett/Desktop/exam-2026/.superpowers/brainstorm/27186-1776514853/content","state_dir":"/Users/jarrett/Desktop/exam-2026/.superpowers/brainstorm/27186-1776514853/state"}
+{"type":"screen-added","file":"/Users/jarrett/Desktop/exam-2026/.superpowers/brainstorm/27186-1776514853/content/layout.html"}
+{"type":"screen-updated","file":"/Users/jarrett/Desktop/exam-2026/.superpowers/brainstorm/27186-1776514853/content/layout.html"}
+{"type":"screen-updated","file":"/Users/jarrett/Desktop/exam-2026/.superpowers/brainstorm/27186-1776514853/content/layout.html"}
+{"type":"screen-updated","file":"/Users/jarrett/Desktop/exam-2026/.superpowers/brainstorm/27186-1776514853/content/layout.html"}
+{"type":"screen-added","file":"/Users/jarrett/Desktop/exam-2026/.superpowers/brainstorm/27186-1776514853/content/waiting.html"}
+{"type":"screen-updated","file":"/Users/jarrett/Desktop/exam-2026/.superpowers/brainstorm/27186-1776514853/content/waiting.html"}
+{"type":"screen-updated","file":"/Users/jarrett/Desktop/exam-2026/.superpowers/brainstorm/27186-1776514853/content/waiting.html"}
+{"type":"screen-updated","file":"/Users/jarrett/Desktop/exam-2026/.superpowers/brainstorm/27186-1776514853/content/waiting.html"}
+{"type":"server-stopped","reason":"owner process exited"}

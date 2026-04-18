@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>简历优化 Agent · Resume Optimizer</title>
+  <link rel="stylesheet" href="/static/style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+</head>
+<body>
+  <header class="topnav">
+    <div class="topnav-inner">
+      <span class="brand-mark">
+        <span class="brand-dot">●</span> Resume Agent
+      </span>
+      <a class="nav-link" href="https://api.deepseek.com" target="_blank" rel="noopener">Powered by DeepSeek ›</a>
+    </div>
+  </header>
+
+  <section class="hero">
+    <p class="hero-eyebrow">AI Resume Optimizer</p>
+    <h1 class="hero-title">让简历，<br />与理想岗位对齐。</h1>
+    <p class="hero-sub">粘贴你的简历与目标 JD，DeepSeek 会流式给出匹配度分析；在你确认后，再生成一份全新的 Markdown 简历。</p>
+  </section>
+
+  <main>
+    <!-- Step 1: input -->
+    <section class="card" id="step-input">
+      <div class="step-head">
+        <span class="step-badge">Step 1</span>
+        <h2>输入简历与目标岗位</h2>
+      </div>
+
+      <div class="two-col">
+        <div class="col">
+          <div class="col-head">
+            <label for="resume">简历内容</label>
+            <div class="file-upload">
+              <input type="file" id="resume-file" accept=".pdf,.docx,.md,.txt" />
+              <label for="resume-file" class="file-btn">📎 上传文件（PDF/DOCX/MD/TXT）</label>
+              <span id="file-name" class="file-name"></span>
+            </div>
+          </div>
+          <textarea id="resume" placeholder="在这里粘贴简历全文，或上传文件自动解析……"></textarea>
+          <div class="hint"><span id="resume-count">0</span> 字 · 建议至少 200 字</div>
+        </div>
+
+        <div class="col">
+          <div class="col-head">
+            <label for="jd">目标职位描述 (JD)</label>
+          </div>
+          <textarea id="jd" placeholder="在这里粘贴目标岗位的 JD……"></textarea>
+          <div class="hint"><span id="jd-count">0</span> 字</div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button id="btn-analyze" class="btn primary">🔍 开始分析匹配度</button>
+        <button id="btn-sample" class="btn ghost" type="button">载入示例</button>
+        <span id="analyze-status" class="status-inline"></span>
+      </div>
+    </section>
+
+    <!-- Step 2: analysis -->
+    <section class="card hidden" id="step-analysis">
+      <div class="step-head">
+        <span class="step-badge step-badge-2">Step 2</span>
+        <h2>匹配度分析结果</h2>
+        <span id="analysis-spinner" class="spinner hidden"></span>
+      </div>
+      <div id="analysis-output" class="markdown-body"></div>
+      <div class="actions">
+        <button id="btn-optimize" class="btn primary" disabled>✅ 确认并生成优化后的简历</button>
+        <button id="btn-reanalyze" class="btn ghost" type="button">重新分析</button>
+        <span id="optimize-status" class="status-inline"></span>
+      </div>
+    </section>
+
+    <!-- Step 3: optimized resume -->
+    <section class="card hidden" id="step-result">
+      <div class="step-head">
+        <span class="step-badge step-badge-3">Step 3</span>
+        <h2>优化后的简历</h2>
+        <span id="result-spinner" class="spinner hidden"></span>
+      </div>
+      <div class="tabs">
+        <button class="tab active" data-tab="preview">预览</button>
+        <button class="tab" data-tab="source">Markdown 源码</button>
+      </div>
+      <div id="result-preview" class="markdown-body tab-panel active"></div>
+      <pre id="result-source" class="tab-panel source-panel"></pre>
+
+      <div class="actions">
+        <button id="btn-copy" class="btn primary">📋 复制 Markdown</button>
+        <button id="btn-download" class="btn">⬇️ 下载 .md</button>
+        <button id="btn-restart" class="btn ghost" type="button">重新开始</button>
+        <span id="copy-status" class="status-inline"></span>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>© Resume Optimization Agent · 本应用不会存储你的简历，所有数据仅在当前浏览器会话内保留</p>
+  </footer>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
