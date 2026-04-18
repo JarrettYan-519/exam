@@ -31,6 +31,23 @@
   let analysisMarkdown = "";
   let resultMarkdown = "";
 
+  // ---------- refine state ----------
+  const drawer = $("refine-drawer");
+  const refineBody = $("refine-body");
+  const refineInput = $("refine-input");
+  const refineSendBtn = $("refine-send");
+  const refineCloseBtn = $("refine-close");
+  const refineClearBtn = $("refine-clear");
+  const btnRefineAnalysis = $("btn-refine-analysis");
+  const btnRefineResume = $("btn-refine-resume");
+
+  let refineAbortController = null;
+
+  const refineState = {
+    analysis: { open: false, history: [], streaming: false },
+    resume:   { open: false, history: [], streaming: false }
+  };
+
   // ---------- char counters ----------
   const updateCount = () => {
     resumeCountEl.textContent = resumeEl.value.length;
@@ -70,12 +87,15 @@
   });
 
   // ---------- SSE stream helper ----------
-  async function streamPost(url, body, onToken) {
-    const res = await fetch(url, {
+  async function streamPost(url, body, onToken, { typed = false, onEvent = null, signal = null } = {}) {
+    const fetchOpts = {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
-    });
+    };
+    if (signal) fetchOpts.signal = signal;
+
+    const res = await fetch(url, fetchOpts);
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.detail || `HTTP ${res.status}`);
@@ -95,8 +115,12 @@
           const raw = line.slice(6);
           if (raw === "[DONE]") return;
           try {
-            const token = JSON.parse(raw);
-            onToken(token);
+            const parsed = JSON.parse(raw);
+            if (typed && onEvent) {
+              onEvent(parsed);
+            } else {
+              onToken(parsed);
+            }
           } catch {
             // ignore malformed fragments
           }
@@ -287,4 +311,171 @@
 3. 有大规模分布式系统或高并发服务的实战经验
 4. 了解 LLM 推理框架（vLLM / SGLang / TensorRT-LLM）优先
 5. 有 AI 平台、推理服务、模型路由经验者加分`;
+  // ---------- refine drawer ----------
+
+  function getRefineMode() {
+    if (refineState.analysis.open) return "analysis";
+    if (refineState.resume.open) return "resume";
+    return null;
+  }
+
+  function getCanvasContent(mode) {
+    return mode === "analysis" ? analysisMarkdown : resultMarkdown;
+  }
+
+  function setCanvasContent(mode, content) {
+    if (mode === "analysis") {
+      analysisMarkdown = content;
+      analysisOutput.innerHTML = marked.parse(content);
+    } else {
+      resultMarkdown = content;
+      resultPreview.innerHTML = marked.parse(content);
+      resultSource.textContent = content;
+    }
+  }
+
+  function openRefine(mode) {
+    const other = mode === "analysis" ? "resume" : "analysis";
+    refineState[other].open = false;
+
+    refineState[mode].open = true;
+    drawer.classList.add("open");
+    refineInput.focus();
+
+    refineBody.innerHTML = "";
+    for (const msg of refineState[mode].history) {
+      const div = document.createElement("div");
+      div.className = msg.role === "user" ? "bubble bubble-user" : "bubble bubble-assistant";
+      div.textContent = msg.content;
+      refineBody.appendChild(div);
+    }
+    refineBody.scrollTop = refineBody.scrollHeight;
+  }
+
+  function closeRefine() {
+    const mode = getRefineMode();
+    if (mode && refineState[mode].streaming && refineAbortController) {
+      refineAbortController.abort();
+      refineState[mode].streaming = false;
+      const lastBubble = refineBody.querySelector(".bubble-assistant:last-child");
+      if (lastBubble && !lastBubble.textContent.trim()) {
+        lastBubble.remove();
+      }
+    }
+    drawer.classList.remove("open");
+    if (mode) refineState[mode].open = false;
+  }
+
+  function _addBubble(role, text, extraClass) {
+    const div = document.createElement("div");
+    div.className = `bubble bubble-${role}` + (extraClass ? ` ${extraClass}` : "");
+    div.textContent = text || "";
+    refineBody.appendChild(div);
+    refineBody.scrollTop = refineBody.scrollHeight;
+    return div;
+  }
+
+  async function sendRefine() {
+    const mode = getRefineMode();
+    if (!mode) return;
+    const instruction = refineInput.value.trim();
+    if (!instruction || refineState[mode].streaming) return;
+
+    refineState[mode].streaming = true;
+    refineSendBtn.disabled = true;
+    refineInput.value = "";
+
+    _addBubble("user", instruction);
+    const assistantBubble = _addBubble("assistant", "", "bubble-cursor");
+
+    const body = {
+      mode,
+      resume: resumeEl.value.trim(),
+      jd: jdEl.value.trim(),
+      current_content: getCanvasContent(mode),
+      history: refineState[mode].history,
+      instruction,
+    };
+    if (mode === "resume") {
+      body.analysis = analysisMarkdown;
+    }
+
+    let replyBuffer = "";
+    let contentBuffer = getCanvasContent(mode);
+    refineAbortController = new AbortController();
+
+    try {
+      await streamPost("/api/refine", body, null, {
+        typed: true,
+        signal: refineAbortController.signal,
+        onEvent: (event) => {
+          if (event.type === "reply") {
+            replyBuffer += event.token;
+            assistantBubble.textContent = replyBuffer;
+            refineBody.scrollTop = refineBody.scrollHeight;
+          } else if (event.type === "content") {
+            contentBuffer += event.token;
+            setCanvasContent(mode, contentBuffer);
+          } else if (event.type === "error") {
+            assistantBubble.textContent = event.token;
+            assistantBubble.classList.remove("bubble-cursor");
+            assistantBubble.classList.add("bubble-error");
+          }
+        },
+      });
+
+      assistantBubble.classList.remove("bubble-cursor");
+
+      if (!replyBuffer.trim()) {
+        replyBuffer = "已更新内容。";
+        assistantBubble.textContent = replyBuffer;
+      }
+
+      refineState[mode].history.push(
+        { role: "user", content: instruction },
+        { role: "assistant", content: replyBuffer },
+      );
+    } catch (e) {
+      if (e.name === "AbortError") {
+        // User closed drawer mid-stream
+      } else {
+        assistantBubble.textContent = `出错了: ${e.message}`;
+        assistantBubble.classList.remove("bubble-cursor");
+        assistantBubble.classList.add("bubble-error");
+      }
+    } finally {
+      refineState[mode].streaming = false;
+      refineSendBtn.disabled = false;
+      refineAbortController = null;
+    }
+  }
+
+  // ---------- refine event listeners ----------
+
+  btnRefineAnalysis.addEventListener("click", () => openRefine("analysis"));
+  btnRefineResume.addEventListener("click", () => openRefine("resume"));
+  refineCloseBtn.addEventListener("click", closeRefine);
+
+  refineSendBtn.addEventListener("click", sendRefine);
+
+  refineInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendRefine();
+    }
+  });
+
+  refineClearBtn.addEventListener("click", () => {
+    const mode = getRefineMode();
+    if (!mode) return;
+    refineState[mode].history = [];
+    refineBody.innerHTML = "";
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && drawer.classList.contains("open")) {
+      closeRefine();
+    }
+  });
+
 })();
